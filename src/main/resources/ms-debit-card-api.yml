@@ -1,0 +1,299 @@
+openapi: 3.0.3
+info:
+  title: debit card Service
+  description: API to manage debit card
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local server
+
+paths:
+  /api/v1/debitCard/:
+    get:
+      summary: Get all credit cards
+      operationId: getAllCards
+      responses:
+        '200':
+          description: List of credit cards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DebitCardResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Create a new credit card
+      operationId: createCard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DebitCardRequest'
+      responses:
+        '201':
+          description: Credit card created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebitCardResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/debitCard/{id_card}:
+    get:
+      summary: Get a credit card by ID
+      operationId: getCardById
+      parameters:
+        - name: id_card
+          in: path
+          required: true
+          description: Id of credit Card
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Credit card found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebitCardResponse'
+        '404':
+          description: Credit card not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Update a credit card by ID
+      operationId: updateCard
+      parameters:
+        - name: id_card
+          in: path
+          required: true
+          description: Id of credit Card
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DebitCardRequest'
+      responses:
+        '200':
+          description: Credit card updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebitCardResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Credit card not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Delete a credit card by ID
+      operationId: deleteCard
+      parameters:
+        - name: id_card
+          in: path
+          description: Id of credit Card
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Credit card deleted
+        '404':
+          description: Credit card not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/debitCard/{id_account}/withdraw:
+    post:
+      summary: Make a withdraw from an account
+      operationId: withdrawFromAccount
+      parameters:
+        - name: id_account
+          in: path
+          required: true
+          description: Id of account
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/debitCard/{id_card}/payment:
+    post:
+      summary: Credit Card Payment
+      operationId: postTransactions
+      parameters:
+        - name: id_card
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+      responses:
+        '200':
+          description: payment credit card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    DebitCard:
+      type: object
+      properties:
+        _id:
+          type: string
+        numberDebitCard:
+          type: number
+        PrincipalAccount:
+          type: string
+        Accounts:
+          type: array
+          items:
+            type: string
+    DebitCardRequest:
+      type: object
+      properties:
+        numberAccount:
+          type: number
+        PrincipalAccount:
+          type: string
+        Accounts:
+          type: array
+          items:
+            type: string
+    DebitCardResponse:
+      type: object
+      properties:
+        numberAccount:
+          type: number
+        PrincipalAccount:
+          type: string
+        Accounts:
+          type: array
+          items:
+            type: string
+    Transaction:
+      type: object
+      properties:
+        clientId:
+          type: string
+        type:
+          type: string
+          enum: [deposit, withdrawal]
+        amount:
+          type: number
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+    TransactionRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+      required:
+        - amount
+    TransactionResponse:
+      type: object
+      properties:
+        clientId:
+          type: string
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
