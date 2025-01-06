@@ -222,6 +222,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/debitCard/{idAccount}/balance:
+    post:
+      summary: balances of debit card
+      operationId: postTransactionsDebitCard
+      parameters:
+        - name: idAccount
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: payment credit card
+          content:
+            application/json:
+              schema:
+                type: number
+                format: double
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
     DebitCard:
