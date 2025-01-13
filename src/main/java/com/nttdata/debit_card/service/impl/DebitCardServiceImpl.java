@@ -1,7 +1,10 @@
 package com.nttdata.debit_card.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nttdata.debit_card.model.domain.Account;
 import com.nttdata.debit_card.model.entity.DebitCard;
+import com.nttdata.debit_card.model.events.EventState;
+import com.nttdata.debit_card.model.events.PaymentEvent;
 import com.nttdata.debit_card.model.exception.DebitCardNotFoundException;
 import com.nttdata.debit_card.model.request.DebitCardRequest;
 import com.nttdata.debit_card.model.request.TransactionRequest;
@@ -13,21 +16,25 @@ import com.nttdata.debit_card.service.DebitCardService;
 import com.nttdata.debit_card.util.DebitCardMapper;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.json.JSONObject;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 
 @Service
 @Log4j2
+@RequiredArgsConstructor
 public class DebitCardServiceImpl implements DebitCardService {
-    @Autowired
-    private DebitCardRepository debitCardRepository;
-
-    @Autowired
-    private AccountService accountService;
+    private final DebitCardRepository debitCardRepository;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final AccountService accountService;
 
     @Override
     @CircuitBreaker(name = "debit-card", fallbackMethod = "fallbackCreateDebitCard")
@@ -123,6 +130,94 @@ public class DebitCardServiceImpl implements DebitCardService {
                                     .switchIfEmpty(Mono.error(new Exception("Failed to " + action + " from all associated accounts")));
                         }));
     }
+    @KafkaListener(topics = "debit-card-topic-create", groupId = "debit-card-group")
+    public void listen(String message) {
+        log.info("Message received from Kafka: {}", message);
+        JSONObject jsonObject = new JSONObject(message);
+        String cardNumber = jsonObject.getString("cardNumber");
+        validateAndSendMessage(cardNumber);
+    }
+    @KafkaListener(topics = "debit-card-topic-pay-write", groupId = "debit-card-group")
+    public void listenMessagePay(String message) {
+         ObjectMapper objectMapper = new ObjectMapper();
+
+        try {
+            log.info("Message received from Kafka: {}", message);
+            PaymentEvent paymentEvent = objectMapper.readValue(message, PaymentEvent.class);
+            processPaymentEvent(paymentEvent);
+        } catch (Exception e) {
+            log.error("Error processing message: {}", message, e);
+        }
+    }
+    private void processPaymentEvent(PaymentEvent paymentEvent) {
+        paymentEvent.getDebitCardNumbers().stream()
+                .distinct()
+                .forEach(cardNumber -> validateAndSendMessageW(cardNumber, paymentEvent.getAmount(), paymentEvent.getIdPay(),paymentEvent.getDebitCardNumbers(),paymentEvent.getListTransactionId()));
+    }
+    private void validateAndSendMessageW(String cardNumber, double amount, String idPay, List<String>listOfDebitCardNumber, List<String> listTransactionId) {
+        debitCardRepository.findByNumberDebitCard(cardNumber)
+                .flatMap(debitCard -> {
+                    String principalAccountId = debitCard.getPrincipalAccountId();
+                    return accountService.withdrawAccount(principalAccountId, new TransactionRequest(amount))
+                            .flatMap(account -> {
+                                EventState messageComplete = new EventState();
+                                messageComplete.setState("Complete");
+                                messageComplete.setIdPay(idPay);
+                                messageComplete.setDebitCardNumbers(listOfDebitCardNumber);
+                                messageComplete.setListTransactionId(listTransactionId);
+                                JSONObject jsonCompleteMessage = new JSONObject(messageComplete);
+                                log.info("Sending message to Kafka: {}", jsonCompleteMessage);
+                                kafkaTemplate.send("debit-card-topic-pay-read", jsonCompleteMessage.toString());
+                                log.info("Message sent to Kafka: {}", jsonCompleteMessage);
+                                return Mono.empty();
+                            })
+                            .onErrorResume(e -> {
+                                EventState messageError = new EventState();
+                                messageError.setState("Error");
+                                messageError.setIdPay(idPay);
+                                messageError.setDebitCardNumbers(listOfDebitCardNumber);
+                                JSONObject jsonErrorMessage = new JSONObject(messageError);
+                                log.info("Sending error message to Kafka: {}", jsonErrorMessage);
+                                kafkaTemplate.send("debit-card-topic-pay-read", jsonErrorMessage.toString());
+                                log.info("Error message sent to Kafka: {}", jsonErrorMessage);
+                                return Mono.error(e);
+                            });
+                })
+                .doOnError(e -> log.error("Error validating card number: {}", cardNumber, e))
+                .subscribe();
+    }
+
+    private void validateAndSendMessage(String cardNumber) {
+        debitCardRepository.findByNumberDebitCard(cardNumber)
+                .flatMap(debitCard -> {
+                    String principalAccountId = debitCard.getPrincipalAccountId();
+                    return accountService.getAccountById(principalAccountId)
+                            .flatMap(account -> {
+                                String responseMessage = createResponseMessage(cardNumber, account.getBalance());
+                                log.info("Sending message to Kafka: {}", responseMessage);
+                                kafkaTemplate.send("purse-balance-topic", responseMessage);
+                                log.info("Message sent to Kafka: {}", responseMessage); // Log para verificar el envío
+                                return Mono.empty();
+                            })
+                            .onErrorResume(e -> {
+                                String errorMessage = createErrorMessage(cardNumber);
+                                log.info("Sending error message to Kafka: {}", errorMessage);
+                                kafkaTemplate.send("purse-balance-topic", errorMessage);
+                                log.info("Error message sent to Kafka: {}", errorMessage); // Log para verificar el envío
+                                return Mono.empty();
+                            });
+                })
+                .doOnError(e -> log.error("Error validating card number: {}", cardNumber, e))
+                .subscribe();
+    }
+    private String createResponseMessage(String cardNumber, double balance) {
+        return "{\"cardNumber\": \"" + cardNumber + "\", \"balance\": " + balance + "}";
+    }
+
+    private String createErrorMessage(String cardNumber) {
+        return "{\"cardNumber\": \"" + cardNumber + "\", \"error\": \"Card not found or account balance retrieval failed\"}";
+    }
+
     public Mono<DebitCardResponse> fallbackCreateDebitCard(Exception exception) {
         log.error("Fallback method for createDebitCard", exception);
         return Mono.error(new Exception("Fallback method for createDebitCard"));

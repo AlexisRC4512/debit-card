@@ -10,7 +10,7 @@ import java.util.Set;
 @Data
 public class DebitCardResponse {
     private String id;
-    private Integer numberDebitCard;
+    private String numberDebitCard;
     private String principalAccountId;
     private Set<String> accounts;
 }

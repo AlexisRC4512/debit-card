@@ -260,7 +260,7 @@ components:
         _id:
           type: string
         numberDebitCard:
-          type: number
+          type: string
         PrincipalAccount:
           type: string
         Accounts:
@@ -272,6 +272,8 @@ components:
       properties:
         numberAccount:
           type: number
+        numberDebitCard:
+          type: string
         PrincipalAccount:
           type: string
         Accounts:
@@ -282,7 +284,9 @@ components:
       type: object
       properties:
         numberAccount:
-          type: number
+          type: string
+        numberDebitCard:
+          type: string
         PrincipalAccount:
           type: string
         Accounts:

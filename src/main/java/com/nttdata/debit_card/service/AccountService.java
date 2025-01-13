@@ -3,15 +3,16 @@ package com.nttdata.debit_card.service;
 import com.nttdata.debit_card.model.domain.Account;
 import com.nttdata.debit_card.model.request.TransactionRequest;
 import com.nttdata.debit_card.model.response.TransactionResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 @Service
+@RequiredArgsConstructor
 public class AccountService {
-    @Autowired
-    private WebClient webClient;
+
+    private final WebClient webClient;
 
     public Mono<Account> getAccountById(String accountId) {
         return webClient.get()

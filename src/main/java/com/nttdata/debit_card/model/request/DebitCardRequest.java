@@ -8,18 +8,18 @@ import java.util.Set;
 @Getter
 @NoArgsConstructor
 public class DebitCardRequest {
-    private Integer numberDebitCard;
+    private String numberDebitCard;
     private String principalAccountId;
     private Set<String> accounts;
 
-    public DebitCardRequest(Integer numberDebitCard, String principalAccountId, Set<String> accounts) {
+    public DebitCardRequest(String numberDebitCard, String principalAccountId, Set<String> accounts) {
         setNumberDebitCard(numberDebitCard);
         setPrincipalAccountId(principalAccountId);
         setAccounts(accounts);
     }
 
-    public void setNumberDebitCard(Integer numberDebitCard) {
-        if ( numberDebitCard.toString().length() < 8) {
+    public void setNumberDebitCard(String numberDebitCard) {
+        if ( numberDebitCard.length() < 8) {
             throw new IllegalArgumentException("The debit card number must have at least 9 characters.");
         }
         this.numberDebitCard = numberDebitCard;

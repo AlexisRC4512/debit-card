@@ -15,7 +15,7 @@ import java.util.Set;
 public class DebitCard {
     @Id
     private String id;
-    private Integer numberDebitCard;
+    private String numberDebitCard;
     private String principalAccountId;
     private Set<String>accounts;
 }

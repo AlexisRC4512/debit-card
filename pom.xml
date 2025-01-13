@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>2.7.5</version>
+		<version>3.3.7</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.nttdata</groupId>
@@ -27,8 +27,13 @@
 		<url/>
 	</scm>
 	<properties>
-		<java.version>11</java.version>
-		<spring-cloud.version>2021.0.6</spring-cloud.version>
+		<java.version>17</java.version>
+		<spring-cloud.version>2023.0.4</spring-cloud.version>
+		<sonar.host.url>http://localhost:9001</sonar.host.url>
+		<sonar.token>sqp_748e1d93b5db78a9905eacf09984ef6a557d52ce</sonar.token>
+		<sonar.projectKey>debit-card</sonar.projectKey>
+		<sonar.projectName>debit-card</sonar.projectName>
+		<sonar.exclusions>pom.xml</sonar.exclusions>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -45,6 +50,15 @@
 			<optional>true</optional>
 		</dependency>
 		<dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20240303</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.kafka</groupId>
+			<artifactId>spring-kafka</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
@@ -55,14 +69,9 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-api</artifactId>
-			<version>1.7.36</version>
-		</dependency>
-		<dependency>
 			<groupId>ch.qos.logback</groupId>
 			<artifactId>logback-classic</artifactId>
-			<version>1.2.11</version>
+			<version>1.4.12</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/io.springfox/springfox-swagger2 -->
 		<dependency>
@@ -229,6 +238,11 @@
 						</goals>
 					</execution>
 				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.sonarsource.scanner.maven</groupId>
+				<artifactId>sonar-maven-plugin</artifactId>
+				<version>3.8.0.2131</version>
 			</plugin>
 		</plugins>
 	</build>
