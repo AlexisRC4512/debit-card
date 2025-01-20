@@ -9,13 +9,13 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public interface DebitCardService {
-    Mono<DebitCardResponse> createDebitCard(DebitCardRequest debitCardRequest);
+    Mono<DebitCardResponse> createDebitCard(DebitCardRequest debitCardRequest ,String authorizationHeader);
     Flux<DebitCardResponse> getAllDebitCard();
     Mono<DebitCardResponse> getDebitCardById(String id);
     Mono<Void> deleteById(String id);
     Mono<DebitCardResponse> updateDebitCard(String id, DebitCardRequest debitCardRequest);
-    Mono<TransactionResponse> withdraw(String idAccount, TransactionRequest transactionRequest);
-    Mono<TransactionResponse> paymentByCardId(String id, TransactionRequest transactionRequest);
-    Mono<Double> getAccountBalance(String idAccount);
+    Mono<TransactionResponse> withdraw(String idAccount, TransactionRequest transactionRequest ,String authorizationHeader);
+    Mono<TransactionResponse> paymentByCardId(String id, TransactionRequest transactionRequest ,String authorizationHeader);
+    Mono<Double> getAccountBalance(String idAccount ,String authorizationHeader);
 
 }

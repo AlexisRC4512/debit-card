@@ -14,19 +14,22 @@ public class AccountService {
 
     private final WebClient webClient;
 
-    public Mono<Account> getAccountById(String accountId) {
+    public Mono<Account> getAccountById(String accountId ,String authorizationHeader) {
         return webClient.get()
                 .uri("/api/v1/account/{id_account}", accountId)
+                .header("Authorization", authorizationHeader)
                 .retrieve()
                 .bodyToMono(Account.class);
     }
-    public Mono<TransactionResponse> withdrawAccount(String accountId, TransactionRequest transactionRequest) {
+    public Mono<TransactionResponse> withdrawAccount(String accountId, TransactionRequest transactionRequest ,String authorizationHeader) {
         return webClient.post()
                 .uri(uriBuilder -> uriBuilder
                         .path("/api/v1/account/{id_account}/withdraw")
                         .build(accountId))
+                .header("Authorization", authorizationHeader)
                 .body(Mono.just(transactionRequest), TransactionRequest.class)
                 .retrieve()
                 .bodyToMono(TransactionResponse.class);
     }
+
 }

@@ -39,7 +39,7 @@ public class DebitCardServiceImpl implements DebitCardService {
     @Override
     @CircuitBreaker(name = "debit-card", fallbackMethod = "fallbackCreateDebitCard")
     @TimeLimiter(name = "debit-card")
-    public Mono<DebitCardResponse> createDebitCard(DebitCardRequest debitCardRequest) {
+    public Mono<DebitCardResponse> createDebitCard(DebitCardRequest debitCardRequest ,String authorizationHeader) {
         return debitCardRepository.findByNumberDebitCard(debitCardRequest.getNumberDebitCard())
                 .flatMap(existingDebitCard -> Mono.<DebitCardResponse>error(new DebitCardNotFoundException("That account number already exists")))
                 .switchIfEmpty(
@@ -95,33 +95,33 @@ public class DebitCardServiceImpl implements DebitCardService {
     @CircuitBreaker(name = "debit-card", fallbackMethod = "fallbackWithdraw")
     @TimeLimiter(name = "debit-card")
     @Override
-    public Mono<TransactionResponse> withdraw(String idDebiCard, TransactionRequest transactionRequest) {
-        return handleTransaction(idDebiCard, transactionRequest, "withdrawing");
+    public Mono<TransactionResponse> withdraw(String idDebiCard, TransactionRequest transactionRequest ,String authorizationHeader) {
+        return handleTransaction(idDebiCard, transactionRequest, "withdrawing",authorizationHeader);
     }
     @CircuitBreaker(name = "debit-card", fallbackMethod = "fallbackPaymentByCardId")
     @TimeLimiter(name = "debit-card")
     @Override
-    public Mono<TransactionResponse> paymentByCardId(String idDebiCard, TransactionRequest transactionRequest) {
-        return handleTransaction(idDebiCard, transactionRequest, "payment");
+    public Mono<TransactionResponse> paymentByCardId(String idDebiCard, TransactionRequest transactionRequest,String authorizationHeader) {
+        return handleTransaction(idDebiCard, transactionRequest, "payment",authorizationHeader);
     }
     @CircuitBreaker(name = "debit-card", fallbackMethod = "fallbackGetAccountBalance")
     @TimeLimiter(name = "debit-card")
     @Override
-    public Mono<Double> getAccountBalance(String idAccount) {
-        return accountService.getAccountById(idAccount)
+    public Mono<Double> getAccountBalance(String idAccount ,String authorizationHeader) {
+        return accountService.getAccountById(idAccount,authorizationHeader)
                 .map(Account::getBalance)
                 .doOnError(e -> log.error("Error fetching account balance: {}", e.getMessage()))
                 .onErrorResume(e -> Mono.error(new Exception("Failed to fetch account balance", e)));
     }
 
 
-    private Mono<TransactionResponse> handleTransaction(String idDebiCard, TransactionRequest transactionRequest, String action) {
+    private Mono<TransactionResponse> handleTransaction(String idDebiCard, TransactionRequest transactionRequest, String action,String authorizationHeader) {
         return debitCardRepository.findById(idDebiCard)
-                .flatMap(debitCard -> accountService.withdrawAccount(debitCard.getPrincipalAccountId(), transactionRequest)
+                .flatMap(debitCard -> accountService.withdrawAccount(debitCard.getPrincipalAccountId(), transactionRequest,authorizationHeader)
                         .onErrorResume(ex -> {
                             log.error("Error {} from principal account {}: {}", action, debitCard.getPrincipalAccountId(), ex.getMessage());
                             return Flux.fromIterable(debitCard.getAccounts())
-                                    .concatMap(accountId -> accountService.withdrawAccount(accountId, transactionRequest)
+                                    .concatMap(accountId -> accountService.withdrawAccount(accountId, transactionRequest,authorizationHeader)
                                             .onErrorResume(innerEx -> {
                                                 log.error("Error {} from account {}: {}", action, accountId, innerEx.getMessage());
                                                 return Mono.empty();
@@ -130,14 +130,15 @@ public class DebitCardServiceImpl implements DebitCardService {
                                     .switchIfEmpty(Mono.error(new Exception("Failed to " + action + " from all associated accounts")));
                         }));
     }
-    @KafkaListener(topics = "debit-card-topic-create", groupId = "debit-card-group")
+    @KafkaListener(id = "myConsumer2", topics = "debit-card-topic-create", groupId = "springboot-group-1", autoStartup = "true")
     public void listen(String message) {
         log.info("Message received from Kafka: {}", message);
         JSONObject jsonObject = new JSONObject(message);
         String cardNumber = jsonObject.getString("cardNumber");
-        validateAndSendMessage(cardNumber);
+        String authorizationHeader = jsonObject.getString("authorization");
+        validateAndSendMessage(cardNumber,authorizationHeader);
     }
-    @KafkaListener(topics = "debit-card-topic-pay-write", groupId = "debit-card-group")
+    @KafkaListener(id = "myConsumer", topics = "debit-card-topic-pay-write", groupId = "springboot-group-1", autoStartup = "true")
     public void listenMessagePay(String message) {
          ObjectMapper objectMapper = new ObjectMapper();
 
@@ -152,13 +153,13 @@ public class DebitCardServiceImpl implements DebitCardService {
     private void processPaymentEvent(PaymentEvent paymentEvent) {
         paymentEvent.getDebitCardNumbers().stream()
                 .distinct()
-                .forEach(cardNumber -> validateAndSendMessageW(cardNumber, paymentEvent.getAmount(), paymentEvent.getIdPay(),paymentEvent.getDebitCardNumbers(),paymentEvent.getListTransactionId()));
+                .forEach(cardNumber -> validateAndSendMessageW(cardNumber, paymentEvent.getAmount(), paymentEvent.getIdPay(),paymentEvent.getDebitCardNumbers(),paymentEvent.getListTransactionId(),paymentEvent.getAuthorizationHeader()));
     }
-    private void validateAndSendMessageW(String cardNumber, double amount, String idPay, List<String>listOfDebitCardNumber, List<String> listTransactionId) {
+    private void validateAndSendMessageW(String cardNumber, double amount, String idPay, List<String>listOfDebitCardNumber, List<String> listTransactionId , String authorizationHeader) {
         debitCardRepository.findByNumberDebitCard(cardNumber)
                 .flatMap(debitCard -> {
                     String principalAccountId = debitCard.getPrincipalAccountId();
-                    return accountService.withdrawAccount(principalAccountId, new TransactionRequest(amount))
+                    return accountService.withdrawAccount(principalAccountId, new TransactionRequest(amount),authorizationHeader)
                             .flatMap(account -> {
                                 EventState messageComplete = new EventState();
                                 messageComplete.setState("Complete");
@@ -187,11 +188,11 @@ public class DebitCardServiceImpl implements DebitCardService {
                 .subscribe();
     }
 
-    private void validateAndSendMessage(String cardNumber) {
+    private void validateAndSendMessage(String cardNumber ,String authorizationHeader) {
         debitCardRepository.findByNumberDebitCard(cardNumber)
                 .flatMap(debitCard -> {
                     String principalAccountId = debitCard.getPrincipalAccountId();
-                    return accountService.getAccountById(principalAccountId)
+                    return accountService.getAccountById(principalAccountId ,authorizationHeader)
                             .flatMap(account -> {
                                 String responseMessage = createResponseMessage(cardNumber, account.getBalance());
                                 log.info("Sending message to Kafka: {}", responseMessage);

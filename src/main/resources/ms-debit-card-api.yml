@@ -6,7 +6,6 @@ info:
 servers:
   - url: http://localhost:8080
     description: Local server
-
 paths:
   /api/v1/debitCard/:
     get:
