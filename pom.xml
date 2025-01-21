@@ -257,7 +257,8 @@
 							<supportingFilesToGenerate>ApiUtil.java</supportingFilesToGenerate>
 							<configOptions>
 								<reactive>true</reactive>
-								<delegatePattern>true</delegatePattern>
+								<interfaceOnly>true</interfaceOnly>
+								<reactive>true</reactive>
 							</configOptions>
 							<enablePostProcessFile>true</enablePostProcessFile>
 						</configuration>
